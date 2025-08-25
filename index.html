@@ -222,8 +222,11 @@
         <input
           type="text"
           id="cityInput"
-          placeholder="Enter city name (e.g., New York, London, Rome)"
-          value="New York" />
+          <input
+          type="text"
+          id="cityInput"
+          placeholder="Enter city name (e.g., Berlin, London, Rome)"
+          value="Berlin" />
         <button
           id="searchBtn"
           onclick="searchCity()">
@@ -265,8 +268,8 @@
       // Global variables
       let map = null;
       let markerCluster = null;
-      let currentLat = 40.7589; // Default NYC
-      let currentLng = -73.9851;
+      let currentLat = 52.52; // Default Berlin
+      let currentLng = 13.405;
       let pizzaPlaces = [];
 
       // Initialize the application
