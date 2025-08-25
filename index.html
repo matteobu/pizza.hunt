@@ -234,6 +234,12 @@
           onclick="useCurrentLocation()">
           Use My Location
         </button>
+        <button
+          id="searchAreaBtn"
+          onclick="searchCurrentArea()">
+          Search This Area
+        </button>
+
         <div
           class="status"
           id="status">
@@ -267,6 +273,11 @@
       document.addEventListener('DOMContentLoaded', function () {
         initMap();
         loadPizzaPlaces();
+        map.on('moveend', function () {
+          const searchBtn = document.getElementById('searchAreaBtn');
+          searchBtn.style.background = '#f39c12'; // Orange color to indicate new area
+          searchBtn.textContent = 'Search This Area';
+        });
 
         // Add enter key support for city search
         document
@@ -470,6 +481,28 @@
         } else {
           updateStatus('Geolocation not supported', 'error');
         }
+      }
+
+      function searchCurrentArea() {
+        // Get current map center and bounds
+        const center = map.getCenter();
+        const bounds = map.getBounds();
+
+        // Calculate if the area is reasonable for searching
+        const zoom = map.getZoom();
+        if (zoom < 10) {
+          updateStatus('Please zoom in more to search a smaller area', 'error');
+          return;
+        }
+
+        updateStatus('Searching pizza places in current area...');
+
+        // Update current coordinates to map center
+        currentLat = center.lat;
+        currentLng = center.lng;
+
+        // Load pizza places for the new area
+        loadPizzaPlaces();
       }
 
       // Test function to verify API connection
