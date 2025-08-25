@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0" />
+    <title>Pizza Map - Python + JavaScript</title>
+
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- MarkerCluster plugin -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .controls {
+        padding: 20px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .controls input {
+        flex: 1;
+        min-width: 200px;
+        padding: 12px 16px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+      }
+
+      .controls input:focus {
+        outline: none;
+        border-color: #e74c3c;
+      }
+
+      .controls button {
+        padding: 12px 24px;
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .controls button:hover {
+        background: #c0392b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+      }
+
+      .controls button:disabled {
+        background: #95a5a6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .status {
+        margin-left: auto;
+        font-weight: 500;
+        color: #555;
+      }
+
+      .success {
+        color: #27ae60;
+      }
+
+      .error {
+        color: #e74c3c;
+      }
+
+      #map {
+        height: 600px;
+        width: 100%;
+      }
+
+      .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        font-size: 18px;
+        color: #666;
+      }
+
+      .pizza-popup {
+        max-width: 300px;
+        padding: 10px;
+      }
+
+      .pizza-popup h3 {
+        margin: 0 0 10px 0;
+        color: #e74c3c;
+      }
+
+      .popup-info {
+        margin: 5px 0;
+        color: #555;
+      }
+
+      .popup-info strong {
+        color: #333;
+      }
+
+      /* Custom marker styles */
+      .pizza-marker {
+        background: transparent !important;
+        border: none !important;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      .pizza-marker:hover {
+        transform: scale(1.2);
+      }
+
+      /* Cluster styles */
+      .pizza-cluster {
+        background: #e74c3c;
+        border: 3px solid #c0392b;
+        border-radius: 50%;
+        text-align: center;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+        line-height: 1.2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pizza-cluster-small {
+        width: 40px;
+        height: 40px;
+      }
+
+      .pizza-cluster-medium {
+        width: 50px;
+        height: 50px;
+        font-size: 14px;
+      }
+
+      .pizza-cluster-large {
+        width: 60px;
+        height: 60px;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🍕 Pizza Places Map</h1>
+        <p>Powered by Python API + JavaScript</p>
+      </div>
+
+      <div class="controls">
+        <input
+          type="text"
+          id="cityInput"
+          placeholder="Enter city name (e.g., New York, London, Rome)"
+          value="New York" />
+        <button
+          id="searchBtn"
+          onclick="searchCity()">
+          Search City
+        </button>
+        <button
+          id="locationBtn"
+          onclick="useCurrentLocation()">
+          Use My Location
+        </button>
+        <div
+          class="status"
+          id="status">
+          Ready
+        </div>
+      </div>
+
+      <div style="position: relative">
+        <div id="map"></div>
+        <div
+          id="loadingOverlay"
+          class="loading-overlay"
+          style="display: none">
+          🍕 Loading delicious pizza places...
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Configuration
+      const API_BASE = 'http://localhost:5001/api';
+
+      // Global variables
+      let map = null;
+      let markerCluster = null;
+      let currentLat = 40.7589; // Default NYC
+      let currentLng = -73.9851;
+      let pizzaPlaces = [];
+
+      // Initialize the application
+      document.addEventListener('DOMContentLoaded', function () {
+        initMap();
+        loadPizzaPlaces();
+
+        // Add enter key support for city search
+        document
+          .getElementById('cityInput')
+          .addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+              searchCity();
+            }
+          });
+      });
+
+      function initMap() {
+        // Initialize the map
+        map = L.map('map').setView([currentLat, currentLng], 12);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution:
+            '© OpenStreetMap contributors | Pizza data via Python API',
+        }).addTo(map);
+
+        // Initialize marker cluster
+        markerCluster = L.markerClusterGroup({
+          iconCreateFunction: function (cluster) {
+            const count = cluster.getChildCount();
+            let size = 'small';
+            if (count >= 10) size = 'medium';
+            if (count >= 100) size = 'large';
+
+            return L.divIcon({
+              html: `<div><span>🍕</span><br><span>${count}</span></div>`,
+              className: `pizza-cluster pizza-cluster-${size}`,
+              iconSize: L.point(40, 40),
+            });
+          },
+        });
+
+        map.addLayer(markerCluster);
+        console.log('Map initialized successfully');
+      }
+
+      function showLoading(show = true) {
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.style.display = show ? 'flex' : 'none';
+      }
+
+      function updateStatus(message, type = '') {
+        const status = document.getElementById('status');
+        status.textContent = message;
+        status.className = `status ${type}`;
+      }
+
+      async function loadPizzaPlaces() {
+        showLoading(true);
+        updateStatus('Loading pizza places from Python API...');
+
+        try {
+          const url = `${API_BASE}/pizza-places?lat=${currentLat}&lng=${currentLng}&radius=0.05`;
+          console.log('Fetching from:', url);
+
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+          }
+
+          const data = await response.json();
+          console.log('API Response:', data);
+
+          if (data.success) {
+            pizzaPlaces = data.places;
+            addPizzaMarkers(data.places);
+            updateStatus(`Found ${data.count} pizza places!`, 'success');
+          } else {
+            throw new Error(data.error || 'Unknown API error');
+          }
+        } catch (error) {
+          console.error('Error loading pizza places:', error);
+          updateStatus(`Error: ${error.message}`, 'error');
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      function addPizzaMarkers(places) {
+        // Clear existing markers
+        markerCluster.clearLayers();
+
+        places.forEach((place) => {
+          // Create custom pizza icon
+          const pizzaIcon = L.divIcon({
+            html: '🍕',
+            className: 'pizza-marker',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+          });
+
+          // Create popup content
+          const popupContent = createPopupContent(place);
+
+          // Create marker
+          const marker = L.marker([place.lat, place.lng], {
+            icon: pizzaIcon,
+          })
+            .bindPopup(popupContent, { maxWidth: 300 })
+            .bindTooltip(place.name, { direction: 'top' });
+
+          markerCluster.addLayer(marker);
+        });
+
+        console.log(`Added ${places.length} pizza markers to map`);
+      }
+
+      function createPopupContent(place) {
+        const content = document.createElement('div');
+        content.className = 'pizza-popup';
+
+        let html = `<h3>${place.name}</h3>`;
+        html += `<div class="popup-info"><strong>Type:</strong> ${place.amenity}</div>`;
+
+        if (place.address) {
+          html += `<div class="popup-info"><strong>Address:</strong> ${place.address}</div>`;
+        }
+
+        if (place.phone) {
+          html += `<div class="popup-info"><strong>Phone:</strong> ${place.phone}</div>`;
+        }
+
+        if (place.website) {
+          html += `<div class="popup-info"><strong>Website:</strong> <a href="${place.website}" target="_blank">Visit</a></div>`;
+        }
+
+        if (place.opening_hours) {
+          html += `<div class="popup-info"><strong>Hours:</strong> ${place.opening_hours}</div>`;
+        }
+
+        if (place.takeaway === 'yes') {
+          html += `<div class="popup-info">🥡 Takeaway available</div>`;
+        }
+
+        if (place.delivery === 'yes') {
+          html += `<div class="popup-info">🚚 Delivery available</div>`;
+        }
+
+        content.innerHTML = html;
+        return content;
+      }
+
+      async function searchCity() {
+        const cityInput = document.getElementById('cityInput');
+        const cityName = cityInput.value.trim();
+
+        if (!cityName) {
+          updateStatus('Please enter a city name', 'error');
+          return;
+        }
+
+        updateStatus('Searching for city...');
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/search-city?city=${encodeURIComponent(cityName)}`
+          );
+          const data = await response.json();
+
+          if (data.success) {
+            updateLocation(data.lat, data.lng);
+            updateStatus(`Found ${data.city}`, 'success');
+          } else {
+            throw new Error(data.error);
+          }
+        } catch (error) {
+          console.error('City search error:', error);
+          updateStatus(`City search error: ${error.message}`, 'error');
+        }
+      }
+
+      function updateLocation(lat, lng) {
+        currentLat = lat;
+        currentLng = lng;
+        map.setView([lat, lng], 12);
+        loadPizzaPlaces();
+      }
+
+      function useCurrentLocation() {
+        if (navigator.geolocation) {
+          updateStatus('Getting your location...');
+
+          navigator.geolocation.getCurrentPosition(
+            function (position) {
+              updateLocation(
+                position.coords.latitude,
+                position.coords.longitude
+              );
+            },
+            function (error) {
+              console.error('Geolocation error:', error);
+              updateStatus('Location access denied', 'error');
+            }
+          );
+        } else {
+          updateStatus('Geolocation not supported', 'error');
+        }
+      }
+
+      // Test function to verify API connection
+      async function testAPI() {
+        try {
+          const response = await fetch(`${API_BASE}/health`);
+          const data = await response.json();
+          console.log('API Health Check:', data);
+          return data.status === 'healthy';
+        } catch (error) {
+          console.error('API connection failed:', error);
+          return false;
+        }
+      }
+
+      // Run API test on load
+      testAPI().then((healthy) => {
+        if (!healthy) {
+          updateStatus(
+            'API connection failed - check if Python server is running',
+            'error'
+          );
+        }
+      });
+    </script>
+  </body>
+</html>
