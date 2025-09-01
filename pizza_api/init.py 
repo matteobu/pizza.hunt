@@ -1,1 +1,3 @@
 from .pizza_api import app  # expose the Flask app
+
+__all__ = ["app"]

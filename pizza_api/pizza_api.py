@@ -185,12 +185,12 @@ def health_check():
     """Simple health check endpoint"""
     return jsonify({'status': 'healthy', 'service': 'pizza-map-api'})
 
-# For Vercel deployment
-if __name__ == '__main__':
-    print("Starting Pizza Map API server...")
-    print("Available endpoints:")
-    print("  GET /api/pizza-places?lat=40.7589&lng=-73.9851")
-    print("  GET /api/search-city?city=Berlin")
-    print("  GET /api/health")
+# # For Vercel deployment
+# if __name__ == '__main__':
+#     print("Starting Pizza Map API server...")
+#     print("Available endpoints:")
+#     print("  GET /api/pizza-places?lat=40.7589&lng=-73.9851")
+#     print("  GET /api/search-city?city=Berlin")
+#     print("  GET /api/health")
     
-    app.run(host='0.0.0.0', port=5001, debug=True)
+#     app.run(host='0.0.0.0', port=5001, debug=True)
