@@ -228,6 +228,16 @@ function createPopupContent(place) {
 }
 
 // ================================
+// Build address from OSM tags
+// ================================
+function buildAddress(tags) {
+  const parts = [];
+  if (tags['addr:housenumber']) parts.push(tags['addr:housenumber']);
+  if (tags['addr:street']) parts.push(tags['addr:street']);
+  if (tags['addr:city']) parts.push(tags['addr:city']);
+  return parts.join(', ');
+}
+// ================================
 // Search city
 // ================================
 async function searchCity() {
