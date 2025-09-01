@@ -1,4 +1,4 @@
-from pizza_api import app
+from pizza_api.pizza_api import app  # import Flask instance
 
 if __name__ == "__main__":
     import os
