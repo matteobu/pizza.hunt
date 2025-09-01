@@ -2,3 +2,4 @@ pizza_env/
 __pycache__/
 *.pyc
 .env
+pizza_api_learning.py

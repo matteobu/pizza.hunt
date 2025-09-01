@@ -10,11 +10,13 @@ let pizzaPlaces = [];
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function () {
+  console.log('DOM fully loaded and parsed');
   initMap();
   loadPizzaPlaces();
   map.on('moveend', function () {
+    console.log('Map moved to new area');
     const searchBtn = document.getElementById('searchAreaBtn');
-    searchBtn.style.background = '#f39c12'; // Orange color to indicate new area
+    searchBtn.style.background = '#f39c12';
     searchBtn.textContent = 'Search This Area';
   });
 
@@ -29,7 +31,15 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function initMap() {
+  console.log('Initializing map...');
+  fetch('http://127.0.0.1:5000/api/search-city?city=Berlin')
+    .then((res) => res.json()) // convert response to JSON
+    .then((data) => {
+      console.log(data); // actual city data
+    })
+    .catch((err) => console.error(err));
   // Initialize the map
+
   map = L.map('map').setView([currentLat, currentLng], 12);
 
   // Add OpenStreetMap tiles
@@ -192,6 +202,16 @@ function createPopupContent(place) {
 async function searchCity() {
   const cityInput = document.getElementById('cityInput');
   const cityName = cityInput.value.trim();
+
+  console.log(`Searching city...${cityName}`);
+  fetch(
+    `http://127.0.0.1:5000/api/search-city?city=${encodeURIComponent(cityName)}`
+  )
+    .then((res) => res.json()) // convert response to JSON
+    .then((data) => {
+      console.log(data); // actual city data
+    })
+    .catch((err) => console.error(err));
 
   if (!cityName) {
     updateStatus('Please enter a city name', 'error');
