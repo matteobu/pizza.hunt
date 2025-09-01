@@ -1,1 +1,1 @@
-web: gunicorn pizza_api:app
+web: gunicorn pizza_api.pizza_api:app
