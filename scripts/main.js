@@ -1,21 +1,33 @@
-// Configuration
-const API_BASE =
-  window.location.hostname === 'localhost'
-    ? 'http://127.0.0.1:5000'
-    : 'https://pizza-map-api-aaac06da3a8f.herokuapp.com';
+// ================================
+// API BASE CONFIGURATION
+// ================================
 
+// Local Python API
+// const API_BASE = 'http://127.0.0.1:5000';
+
+// Heroku Python API
+// const API_BASE = 'https://pizza-map-api-aaac06da3a8f.herokuapp.com';
+
+// Direct Overpass API
+const API_BASE = 'https://overpass-api.de/api/interpreter';
+
+// ================================
 // Global variables
+// ================================
 let map = null;
 let markerCluster = null;
 let currentLat = 52.52; // Default Berlin
 let currentLng = 13.405;
 let pizzaPlaces = [];
 
+// ================================
 // Initialize the application
+// ================================
 document.addEventListener('DOMContentLoaded', function () {
   console.log('DOM fully loaded and parsed');
   initMap();
   loadPizzaPlaces();
+
   map.on('moveend', function () {
     console.log('Map moved to new area');
     const searchBtn = document.getElementById('searchAreaBtn');
@@ -26,19 +38,19 @@ document.addEventListener('DOMContentLoaded', function () {
   document
     .getElementById('cityInput')
     .addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') {
-        searchCity();
-      }
+      if (e.key === 'Enter') searchCity();
     });
 });
 
+// ================================
+// Map initialization
+// ================================
 function initMap() {
   console.log('Initializing map...');
-
   map = L.map('map').setView([currentLat, currentLng], 12);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors | Pizza data via Python API',
+    attribution: '© OpenStreetMap contributors | Pizza data via API',
   }).addTo(map);
 
   markerCluster = L.markerClusterGroup({
@@ -60,6 +72,9 @@ function initMap() {
   console.log('Map initialized successfully');
 }
 
+// ================================
+// UI Helpers
+// ================================
 function showLoading(show = true) {
   const overlay = document.getElementById('loadingOverlay');
   overlay.style.display = show ? 'flex' : 'none';
@@ -71,23 +86,85 @@ function updateStatus(message, type = '') {
   status.className = `status ${type}`;
 }
 
-// --- UPDATED: load pizza places ONLY from Python API ---
+// ================================
+// Load Pizza Places (Python API or Overpass)
+// ================================
 async function loadPizzaPlaces() {
   showLoading(true);
-  updateStatus('Loading pizza places from API...');
+  updateStatus('Loading pizza places...');
 
   try {
-    const response = await fetch(
-      `${API_BASE}/api/pizza-places?lat=${currentLat}&lng=${currentLng}&radius=0.05`
-    );
-    const data = await response.json();
+    let places = [];
 
-    if (!data.success) {
-      updateStatus(`Error: ${data.error}`, 'error');
-      return;
+    if (API_BASE.includes('overpass-api.de')) {
+      // --- Direct Overpass API ---
+      const radius = 0.05;
+      const south = currentLat - radius;
+      const north = currentLat + radius;
+      const west = currentLng - radius;
+      const east = currentLng + radius;
+
+      const query = `
+        [out:json][timeout:25];
+        (
+          node["amenity"="restaurant"]["cuisine"~"pizza"](${south},${west},${north},${east});
+          way["amenity"="restaurant"]["cuisine"~"pizza"](${south},${west},${north},${east});
+          node["amenity"="fast_food"]["cuisine"~"pizza"](${south},${west},${north},${east});
+          node["shop"="food"]["cuisine"~"pizza"](${south},${west},${north},${east});
+        );
+        out center;
+      `;
+
+      const response = await fetch(API_BASE, {
+        method: 'POST',
+        body: query,
+        headers: { 'Content-Type': 'text/plain' },
+      });
+
+      const data = await response.json();
+      places = data.elements
+        .map((el) => {
+          let lat, lng;
+          if (el.lat && el.lon) {
+            lat = el.lat;
+            lng = el.lon;
+          } else if (el.center) {
+            lat = el.center.lat;
+            lng = el.center.lon;
+          } else {
+            return null;
+          }
+
+          const tags = el.tags || {};
+          return {
+            id: el.id,
+            lat,
+            lng,
+            name: tags.name || 'Pizza Place',
+            cuisine: tags.cuisine || 'pizza',
+            amenity: tags.amenity || tags.shop || 'restaurant',
+            phone: tags.phone || '',
+            website: tags.website || '',
+            address: buildAddress(tags),
+            opening_hours: tags.opening_hours || '',
+            takeaway: tags.takeaway || '',
+            delivery: tags.delivery || '',
+          };
+        })
+        .filter(Boolean);
+    } else {
+      // --- Python API (localhost or Heroku) ---
+      const response = await fetch(
+        `${API_BASE}/api/pizza-places?lat=${currentLat}&lng=${currentLng}&radius=0.05`
+      );
+      const data = await response.json();
+      if (!data.success) {
+        updateStatus(`Error: ${data.error}`, 'error');
+        return;
+      }
+      places = data.places;
     }
 
-    const places = data.places;
     addPizzaMarkers(places);
     updateStatus(`Found ${places.length} pizza places!`, 'success');
   } catch (error) {
@@ -98,6 +175,9 @@ async function loadPizzaPlaces() {
   }
 }
 
+// ================================
+// Add markers
+// ================================
 function addPizzaMarkers(places) {
   markerCluster.clearLayers();
 
@@ -121,13 +201,15 @@ function addPizzaMarkers(places) {
   console.log(`Added ${places.length} pizza markers to map`);
 }
 
+// ================================
+// Popup content
+// ================================
 function createPopupContent(place) {
   const content = document.createElement('div');
   content.className = 'pizza-popup';
 
   let html = `<h3>${place.name}</h3>`;
   html += `<div class="popup-info"><strong>Type:</strong> ${place.amenity}</div>`;
-
   if (place.address)
     html += `<div class="popup-info"><strong>Address:</strong> ${place.address}</div>`;
   if (place.phone)
@@ -145,36 +227,52 @@ function createPopupContent(place) {
   return content;
 }
 
+// ================================
+// Search city
+// ================================
 async function searchCity() {
   const cityInput = document.getElementById('cityInput');
   const cityName = cityInput.value.trim();
-
   if (!cityName) {
     updateStatus('Please enter a city name', 'error');
     return;
   }
 
   updateStatus('Searching for city...');
-
   try {
-    const response = await fetch(
-      `${API_BASE}/api/search-city?city=${encodeURIComponent(cityName)}`
-    );
-    const data = await response.json();
+    if (API_BASE.includes('overpass-api.de')) {
+      // Direct Overpass/Nominatim
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
+          cityName
+        )}`,
+        { headers: { 'User-Agent': 'PizzaHuntApp/1.0 (email@example.com)' } }
+      );
+      const data = await response.json();
+      if (!data.length) throw new Error('City not found');
 
-    if (!data.success) {
-      updateStatus(`City search error: ${data.error}`, 'error');
-      return;
+      updateLocation(parseFloat(data[0].lat), parseFloat(data[0].lon));
+      updateStatus(`Found ${data[0].display_name}`, 'success');
+    } else {
+      // Python API
+      const response = await fetch(
+        `${API_BASE}/api/search-city?city=${encodeURIComponent(cityName)}`
+      );
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+
+      updateLocation(data.lat, data.lng);
+      updateStatus(`Found ${data.city}`, 'success');
     }
-
-    updateLocation(data.lat, data.lng);
-    updateStatus(`Found ${data.city}`, 'success');
   } catch (error) {
     console.error('City search error:', error);
     updateStatus(`City search error: ${error.message}`, 'error');
   }
 }
 
+// ================================
+// Update map location
+// ================================
 function updateLocation(lat, lng) {
   currentLat = lat;
   currentLng = lng;
@@ -182,34 +280,4 @@ function updateLocation(lat, lng) {
   loadPizzaPlaces();
 }
 
-function useCurrentLocation() {
-  if (navigator.geolocation) {
-    updateStatus('Getting your location...');
-
-    navigator.geolocation.getCurrentPosition(
-      function (position) {
-        updateLocation(position.coords.latitude, position.coords.longitude);
-      },
-      function (error) {
-        console.error('Geolocation error:', error);
-        updateStatus('Location access denied', 'error');
-      }
-    );
-  } else {
-    updateStatus('Geolocation not supported', 'error');
-  }
-}
-
-function searchCurrentArea() {
-  const center = map.getCenter();
-  const zoom = map.getZoom();
-  if (zoom < 10) {
-    updateStatus('Please zoom in more to search a smaller area', 'error');
-    return;
-  }
-
-  currentLat = center.lat;
-  currentLng = center.lng;
-  updateStatus('Searching pizza places in current area...');
-  loadPizzaPlaces();
-}
+// ================================
